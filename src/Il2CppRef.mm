@@ -19,6 +19,10 @@
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
+#import <UIKit/UIKit.h>      // UIApplicationDidFinishLaunchingNotification
+#import <dispatch/dispatch.h> // dispatch_after
+#import <stdio.h>             // snprintf
+#import <string.h>            // strlen / memcpy
 
 // ---------------------------------------------------------------------------
 // 1. il2cpp API 类型定义
@@ -218,7 +222,7 @@ static void *find_class(const char *ns, const char *name) {
 }
 
 // 取静态属性 getter（原样本大量使用 get_/set_ 前缀的反射调用）
-static void *get_static_prop(const char *ns, const char *cls, const char *prop) {
+static void * __attribute__((unused)) get_static_prop(const char *ns, const char *cls, const char *prop) {
     void *klass = find_class(ns, cls);
     if (!klass) return NULL;
     char buf[128];
@@ -274,7 +278,7 @@ static void start_ready_loop(void (^onReady)(void)) {
 typedef void *(*t_il2cpp_class_get_field_from_name)(void *klass, const char *name);
 typedef size_t (*t_il2cpp_field_get_offset)(void *field);
 
-static void set_object_field(void *obj, void *klass, const char *field_name, void *value) {
+static void __attribute__((unused)) set_object_field(void *obj, void *klass, const char *field_name, void *value) {
     t_il2cpp_class_get_field_from_name get_field =
         (t_il2cpp_class_get_field_from_name)require_sym(open_unity_framework(), "il2cpp_class_get_field_from_name");
     t_il2cpp_field_get_offset get_offset =

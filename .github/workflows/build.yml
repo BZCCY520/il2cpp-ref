@@ -40,6 +40,9 @@ jobs:
             -isysroot "$SDK" \
             -fobjc-arc \
             -dynamiclib \
+            -O2 \
+            -Wno-unused-function \
+            -Wno-deprecated-declarations \
             -install_name "@executable_path/Frameworks/Il2CppRef.dylib" \
             -framework Foundation \
             -framework UIKit \
