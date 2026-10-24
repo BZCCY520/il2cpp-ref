@@ -16,7 +16,7 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show toolchain
         run: |
@@ -25,33 +25,26 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
           echo "clang: $(xcrun -f clang)"
 
-      - name: Build arm64 + arm64e dylib
+      - name: Build dylib
         run: |
           set -euo pipefail
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           mkdir -p build
 
-          for ARCH in arm64 arm64e; do
-            echo "=== building $ARCH ==="
-            xcrun --sdk iphoneos clang++ \
-              -arch $ARCH \
-              -miphoneos-version-min=14.0 \
-              -isysroot "$SDK" \
-              -fobjc-arc \
-              -dynamiclib \
-              -fuse-ld=lld \
-              -install_name "@executable_path/Frameworks/Il2CppRef.dylib" \
-              -framework Foundation \
-              -framework UIKit \
-              -o build/Il2CppRef.$ARCH.dylib \
-              src/Il2CppRef.mm
-          done
-
-          # 合并为 fat binary（可选，单 arch 也能用）
-          xcrun lipo -create \
-            build/Il2CppRef.arm64.dylib \
-            build/Il2CppRef.arm64e.dylib \
-            -output build/Il2CppRef.dylib
+          # 只编 arm64：arm64e 需要 -arch arm64e 且部分 Xcode 版本拒绝，
+          # 而越狱 / TrollStore 环境下 arm64 已足够。
+          # 用默认 ld64，不加 -fuse-ld=lld（Xcode clang 对 iOS 目标用 lld 常失败）。
+          xcrun --sdk iphoneos clang++ \
+            -arch arm64 \
+            -miphoneos-version-min=14.0 \
+            -isysroot "$SDK" \
+            -fobjc-arc \
+            -dynamiclib \
+            -install_name "@executable_path/Frameworks/Il2CppRef.dylib" \
+            -framework Foundation \
+            -framework UIKit \
+            -o build/Il2CppRef.dylib \
+            src/Il2CppRef.mm
 
           echo "--- result ---"
           file build/Il2CppRef.dylib
@@ -82,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Il2CppRef-dylib
-          path: build/Il2CppRef*.dylib
+          path: build/Il2CppRef.dylib
           retention-days: 30
 
       - name: Upload injected IPA
