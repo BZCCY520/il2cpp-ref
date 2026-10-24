@@ -1,0 +1,8 @@
+# 强制 LF，防止 CRLF 进仓库（workflow / shell 脚本敏感）
+* text=auto eol=lf
+*.yml text eol=lf
+*.py  text eol=lf
+*.md  text eol=lf
+*.mm  text eol=lf
+*.ipa binary
+*.dylib binary

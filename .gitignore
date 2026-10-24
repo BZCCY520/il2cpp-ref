@@ -1,0 +1,18 @@
+# ---- 大文件：绝不入库 ----
+*.ipa
+*.tipa
+*.app/
+*.dylib
+*.deb
+Payload/
+
+# ---- 构建与中间产物 ----
+build/
+work/
+*.o
+*.dSYM/
+.DS_Store
+
+# ---- 本地校验脚本产物 ----
+tools/__pycache__/
+*.pyc

@@ -1,0 +1,94 @@
+name: Build IL2CPP Reference Dylib
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_ipa_url:
+        description: '可选：原 IPA 的直链（用于自动注入并产出成品 IPA；留空则只出 dylib）'
+        required: false
+        default: ''
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    # macos-14 = Apple Silicon + Xcode 15，原生 arm64 工具链，无需交叉编译
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          xcrun --sdk iphoneos --show-sdk-version
+          echo "clang: $(xcrun -f clang)"
+
+      - name: Build arm64 + arm64e dylib
+        run: |
+          set -euo pipefail
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          mkdir -p build
+
+          for ARCH in arm64 arm64e; do
+            echo "=== building $ARCH ==="
+            xcrun --sdk iphoneos clang++ \
+              -arch $ARCH \
+              -miphoneos-version-min=14.0 \
+              -isysroot "$SDK" \
+              -fobjc-arc \
+              -dynamiclib \
+              -fuse-ld=lld \
+              -install_name "@executable_path/Frameworks/Il2CppRef.dylib" \
+              -framework Foundation \
+              -framework UIKit \
+              -o build/Il2CppRef.$ARCH.dylib \
+              src/Il2CppRef.mm
+          done
+
+          # 合并为 fat binary（可选，单 arch 也能用）
+          xcrun lipo -create \
+            build/Il2CppRef.arm64.dylib \
+            build/Il2CppRef.arm64e.dylib \
+            -output build/Il2CppRef.dylib
+
+          echo "--- result ---"
+          file build/Il2CppRef.dylib
+          xcrun lipo -info build/Il2CppRef.dylib
+          ls -la build/
+
+      - name: Ad-hoc sign
+        run: |
+          set -euo pipefail
+          codesign -f -s - --timestamp=none build/Il2CppRef.dylib
+          codesign -dv build/Il2CppRef.dylib 2>&1 || true
+
+      - name: Inject into IPA (optional)
+        if: ${{ github.event.inputs.game_ipa_url != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          echo "downloading IPA..."
+          curl -L --retry 3 -o work/input.ipa "${{ github.event.inputs.game_ipa_url }}"
+          ls -la work/
+
+          python3 tools/inject_dylib.py \
+            --ipa work/input.ipa \
+            --dylib build/Il2CppRef.dylib \
+            --out work/output.ipa
+
+      - name: Upload dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: Il2CppRef-dylib
+          path: build/Il2CppRef*.dylib
+          retention-days: 30
+
+      - name: Upload injected IPA
+        if: ${{ github.event.inputs.game_ipa_url != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: injected-ipa
+          path: work/output.ipa
+          retention-days: 7
